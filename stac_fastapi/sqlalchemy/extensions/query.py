@@ -65,7 +65,7 @@ class Queryables(str, AutoValueEnum):
     dtype = "cog:dtype"
     foo = "foo"
     id = "id"
-    field_id = "properties:field_id"
+    field_id = "field_id"
     collection = "collection"
     datetime = "datetime"
 
