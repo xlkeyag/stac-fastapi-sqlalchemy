@@ -68,7 +68,6 @@ class Queryables(str, AutoValueEnum):
     field_id = "field_id"
     collection = "collection"
     datetime = "datetime"
-    datetime2 = "properties:datetime"
 
     def __str__(self) -> str:
         """Return the Queryable's value as its __str__.
@@ -100,7 +99,6 @@ class QueryableTypes:
     field_id = sa.String
     collection = sa.String
     datetime = sa.DateTime
-    datetime2 = sa.String
 
 
 class QueryExtensionPostRequest(BaseModel):
