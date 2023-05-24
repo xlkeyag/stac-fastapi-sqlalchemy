@@ -66,6 +66,7 @@ class Queryables(str, AutoValueEnum):
     foo = "foo"
     id = "id"
     field_id = "field_id"
+    collection = "collection"
 
     def __str__(self) -> str:
         """Return the Queryable's value as its __str__.
@@ -95,6 +96,7 @@ class QueryableTypes:
     dtype = sa.String
     id = sa.String
     field_id = sa.String
+    collection = sa.String
 
 
 class QueryExtensionPostRequest(BaseModel):
