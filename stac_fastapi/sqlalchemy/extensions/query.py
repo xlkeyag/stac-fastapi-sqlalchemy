@@ -64,6 +64,7 @@ class Queryables(str, AutoValueEnum):
     maxzoom = "cog:maxzoom"
     dtype = "cog:dtype"
     foo = "foo"
+    id = "id"
 
     def __str__(self) -> str:
         """Return the Queryable's value as its __str__.
@@ -91,6 +92,7 @@ class QueryableTypes:
     minzoom = sa.Integer
     maxzoom = sa.Integer
     dtype = sa.String
+    id = sa.String
 
 
 class QueryExtensionPostRequest(BaseModel):
