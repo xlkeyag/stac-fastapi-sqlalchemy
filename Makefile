@@ -50,3 +50,15 @@ docs-image:
 docs: docs-image
 	docker-compose -f docker-compose.docs.yml \
 		run docs
+
+# XLKEY
+build:
+	docker build --platform linux/amd64 -t xlkeyag/stac-api:latest .
+
+update-prod:
+	aws --no-cli-pager ecs describe-task-definition --region ca-central-1 --task-definition xlkey-stac-api-production | \
+	jq '.taskDefinition.taskDefinitionArn' | \
+	xargs -I {} aws --no-cli-pager ecs update-service --region ca-central-1 --cluster XLKEY_PRODUCTION_EKS_CLUSTER --service xlkey-stac-api-production --force-new-deployment --task-definition {}
+
+task-prod:
+	aws ecs register-task-definition --region ca-central-1 --cli-input-json file://task-definition.json

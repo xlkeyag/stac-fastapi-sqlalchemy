@@ -1,6 +1,8 @@
 """FastAPI application."""
 import os
+import jwt
 
+from fastapi import Depends
 from stac_fastapi.api.app import StacApi
 from stac_fastapi.api.models import create_get_request_model, create_post_request_model
 from stac_fastapi.extensions.core import (
@@ -21,10 +23,28 @@ from stac_fastapi.sqlalchemy.transactions import (
     TransactionsClient,
 )
 
+from fastapi import HTTPException, Request, status
+from typing import Dict
+
+
+def validate_jwt(request: Request) -> Dict:
+    """Validate JWT token."""
+    try:
+        token = request.headers["Authorization"].split("Bearer ")[1]
+        return jwt.decode(token, key="our-secret-key", algorithms=["HS256"], options={"verify_signature": False})
+    except:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+
 settings = SqlalchemySettings()
 session = Session.create_from_settings(settings)
 extensions = [
-    TransactionExtension(client=TransactionsClient(session=session), settings=settings),
+    TransactionExtension(client=TransactionsClient(
+        session=session), settings=settings),
     BulkTransactionExtension(client=BulkTransactionsClient(session=session)),
     FieldsExtension(),
     QueryExtension(),
@@ -43,6 +63,25 @@ api = StacApi(
     ),
     search_get_request_model=create_get_request_model(extensions),
     search_post_request_model=post_request_model,
+    # Add route dependencies to all routes
+    route_dependencies=[
+        (
+            [
+                {"path": "/collections", "method": "GET"},
+                {"path": "/collections", "method": "POST"},
+                {"path": "/collections", "method": "PUT"},
+                {"path": "/collections/{collectionId}", "method": "GET"},
+                {"path": "/collections/{collectionId}", "method": "DELETE"},
+                {"path": "/collections/{collectionId}/items", "method": "GET"},
+                {"path": "/collections/{collectionId}/items", "method": "POST"},
+                {"path": "/collections/{collectionId}/items", "method": "PUT"},
+                {"path": "/collections/{collectionId}/items/{itemId}", "method": "GET"},
+                {"path": "/collections/{collectionId}/items/{itemId}",
+                    "method": "DELETE"},
+            ],
+            [Depends(validate_jwt)]
+        ),
+    ]
 )
 app = api.app
 

@@ -18,4 +18,6 @@ COPY . /app
 
 RUN pip install -e .[server]
 
+EXPOSE 8081
+
 CMD ["python", "-m", "stac_fastapi.sqlalchemy.app"]

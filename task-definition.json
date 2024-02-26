@@ -1,0 +1,85 @@
+{
+    "containerDefinitions": [
+        {
+            "name": "xlkey-stac-api",
+            "image": "239716759257.dkr.ecr.ca-central-1.amazonaws.com/xlkeyag/stac-api:2.4.9",
+            "cpu": 0,
+            "portMappings": [
+                {
+                    "containerPort": 8081,
+                    "hostPort": 8081,
+                    "protocol": "tcp"
+                }
+            ],
+            "environment": [
+                {
+                    "name": "APP_HOST",
+                    "value": "0.0.0.0"
+                },
+                {
+                    "name": "APP_PORT",
+                    "value": "8081"
+                },
+                {
+                    "name": "RELOAD",
+                    "value": "false"
+                },
+                {
+                    "name": "ENVIRONMENT",
+                    "value": "production"
+                },
+                {
+                    "name": "POSTGRES_PORT",
+                    "value": "5432"
+                },
+                {
+                    "name": "WEB_CONCURRENCY",
+                    "value": "10"
+                }
+            ],
+            "secrets": [
+                {
+                    "name": "POSTGRES_USER",
+                    "valueFrom": "arn:aws:ssm:ca-central-1:239716759257:parameter/xlkey/production/xlkey-stac-api-production/postgres-user"
+                },
+                {
+                    "name": "POSTGRES_PASS",
+                    "valueFrom": "arn:aws:ssm:ca-central-1:239716759257:parameter/xlkey/production/xlkey-stac-api-production/postgres-pass"
+                },
+                {
+                    "name": "POSTGRES_DBNAME",
+                    "valueFrom": "arn:aws:ssm:ca-central-1:239716759257:parameter/xlkey/production/xlkey-stac-api-production/postgres-dbname"
+                },
+                {
+                    "name": "POSTGRES_HOST_READER",
+                    "valueFrom": "arn:aws:ssm:ca-central-1:239716759257:parameter/xlkey/production/xlkey-stac-api-production/postgres-host-reader"
+                },
+                {
+                    "name": "POSTGRES_HOST_WRITER",
+                    "valueFrom": "arn:aws:ssm:ca-central-1:239716759257:parameter/xlkey/production/xlkey-stac-api-production/postgres-host-writer"
+                }
+            ],
+            "essential": true,
+            "readonlyRootFilesystem": true,
+            "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                    "awslogs-create-group": "true",
+                    "awslogs-group": "/ecs/xlkey-stac-api-production",
+                    "awslogs-region": "ca-central-1",
+                    "awslogs-stream-prefix": "xlkey-stac-api-production"
+                },
+                "secretOptions": []
+            }
+        }
+    ],
+    "family": "xlkey-stac-api-production",
+    "taskRoleArn": "arn:aws:iam::239716759257:role/ProductionBackendApplicationTaskRole",
+    "executionRoleArn": "arn:aws:iam::239716759257:role/ECSTasksExecutionRole",
+    "networkMode": "awsvpc",
+    "requiresCompatibilities": [
+        "FARGATE"
+    ],
+    "cpu": "1024",
+    "memory": "2048"
+}
