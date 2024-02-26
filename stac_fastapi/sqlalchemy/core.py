@@ -1,4 +1,5 @@
 """Item crud client."""
+import jwt
 import json
 import logging
 import operator
@@ -42,7 +43,8 @@ class CoreCrudClient(PaginationTokenClient, BaseCoreClient):
 
     session: Session = attr.ib(default=attr.Factory(Session.create_from_env))
     item_table: Type[database.Item] = attr.ib(default=database.Item)
-    collection_table: Type[database.Collection] = attr.ib(default=database.Collection)
+    collection_table: Type[database.Collection] = attr.ib(
+        default=database.Collection)
     item_serializer: Type[serializers.Serializer] = attr.ib(
         default=serializers.ItemSerializer
     )
@@ -62,11 +64,30 @@ class CoreCrudClient(PaginationTokenClient, BaseCoreClient):
 
     def all_collections(self, **kwargs) -> Collections:
         """Read all collections from the database."""
+
+        # Get JWT from request headers
+        token = kwargs["request"].headers.get("Authorization").split(" ")[1]
+        decoded = jwt.decode(token, key="our-secret-key",
+                             algorithms=["HS256"], options={"verify_signature": False})
+
+        if not 'scopes' in decoded:
+            raise HTTPException(
+                status_code=401, detail="Unauthorized to perform this action (scopes missing)"
+            )
+
         base_url = str(kwargs["request"].base_url)
         with self.session.reader.context_session() as session:
-            collections = session.query(self.collection_table).all()
+            # where license = any of the scopes
+            if 'stac:admin' in decoded['scopes']:
+                collections = session.query(self.collection_table).all()
+            else:
+                collections = session.query(self.collection_table).filter(
+                    self.collection_table.license.in_(decoded['scopes'])
+                ).all()
+
             serialized_collections = [
-                self.collection_serializer.db_to_stac(collection, base_url=base_url)
+                self.collection_serializer.db_to_stac(
+                    collection, base_url=base_url)
                 for collection in collections
             ]
             links = [
@@ -95,7 +116,8 @@ class CoreCrudClient(PaginationTokenClient, BaseCoreClient):
         """Get collection by id."""
         base_url = str(kwargs["request"].base_url)
         with self.session.reader.context_session() as session:
-            collection = self._lookup_id(collection_id, self.collection_table, session)
+            collection = self._lookup_id(
+                collection_id, self.collection_table, session)
             return self.collection_serializer.db_to_stac(collection, base_url)
 
     def item_collection(
@@ -131,7 +153,8 @@ class CoreCrudClient(PaginationTokenClient, BaseCoreClient):
             if geom:
                 filter_geom = ga.shape.from_shape(geom, srid=4326)
                 query = query.filter(
-                    ga.func.ST_Intersects(self.item_table.geometry, filter_geom)
+                    ga.func.ST_Intersects(
+                        self.item_table.geometry, filter_geom)
                 )
 
             # Temporal query
@@ -143,7 +166,8 @@ class CoreCrudClient(PaginationTokenClient, BaseCoreClient):
                     query = query.filter(self.item_table.datetime == dts[0])
                 # is there a benefit to between instead of >= and <= ?
                 elif dts[0] not in ["", ".."] and dts[1] not in ["", ".."]:
-                    query = query.filter(self.item_table.datetime.between(*dts))
+                    query = query.filter(
+                        self.item_table.datetime.between(*dts))
                 # All items after the start date
                 elif dts[0] not in ["", ".."]:
                     query = query.filter(self.item_table.datetime >= dts[0])
@@ -233,11 +257,13 @@ class CoreCrudClient(PaginationTokenClient, BaseCoreClient):
         base_url = str(kwargs["request"].base_url)
         with self.session.reader.context_session() as session:
             db_query = session.query(self.item_table)
-            db_query = db_query.filter(self.item_table.collection_id == collection_id)
+            db_query = db_query.filter(
+                self.item_table.collection_id == collection_id)
             db_query = db_query.filter(self.item_table.id == item_id)
             item = db_query.first()
             if not item:
-                raise NotFoundError(f"{self.item_table.__name__} {item_id} not found")
+                raise NotFoundError(
+                    f"{self.item_table.__name__} {item_id} not found")
             return self.item_serializer.db_to_stac(item, base_url=base_url)
 
     def get_search(
@@ -299,7 +325,8 @@ class CoreCrudClient(PaginationTokenClient, BaseCoreClient):
         try:
             search_request = self.post_request_model(**base_args)
         except ValidationError:
-            raise HTTPException(status_code=400, detail="Invalid parameters provided")
+            raise HTTPException(
+                status_code=400, detail="Invalid parameters provided")
         resp = self.post_search(search_request, request=kwargs["request"])
 
         # Pagination
@@ -326,7 +353,8 @@ class CoreCrudClient(PaginationTokenClient, BaseCoreClient):
         base_url = str(kwargs["request"].base_url)
         with self.session.reader.context_session() as session:
             token = (
-                self.get_token(search_request.token) if search_request.token else False
+                self.get_token(
+                    search_request.token) if search_request.token else False
             )
             query = session.query(self.item_table)
 
@@ -365,7 +393,8 @@ class CoreCrudClient(PaginationTokenClient, BaseCoreClient):
                     *[self.item_table.id == i for i in search_request.ids]
                 )
                 items = query.filter(id_filter).order_by(self.item_table.id)
-                page = get_page(items, per_page=search_request.limit, page=token)
+                page = get_page(
+                    items, per_page=search_request.limit, page=token)
                 if self.extension_is_enabled("ContextExtension"):
                     count = len(search_request.ids)
                 page.next = (
@@ -400,7 +429,8 @@ class CoreCrudClient(PaginationTokenClient, BaseCoreClient):
                 if geom:
                     filter_geom = ga.shape.from_shape(geom, srid=4326)
                     query = query.filter(
-                        ga.func.ST_Intersects(self.item_table.geometry, filter_geom)
+                        ga.func.ST_Intersects(
+                            self.item_table.geometry, filter_geom)
                     )
 
                 # Temporal query
@@ -409,16 +439,20 @@ class CoreCrudClient(PaginationTokenClient, BaseCoreClient):
                     dts = search_request.datetime.split("/")
                     # Non-interval date ex. "2000-02-02T00:00:00.00Z"
                     if len(dts) == 1:
-                        query = query.filter(self.item_table.datetime == dts[0])
+                        query = query.filter(
+                            self.item_table.datetime == dts[0])
                     # is there a benefit to between instead of >= and <= ?
                     elif dts[0] not in ["", ".."] and dts[1] not in ["", ".."]:
-                        query = query.filter(self.item_table.datetime.between(*dts))
+                        query = query.filter(
+                            self.item_table.datetime.between(*dts))
                     # All items after the start date
                     elif dts[0] not in ["", ".."]:
-                        query = query.filter(self.item_table.datetime >= dts[0])
+                        query = query.filter(
+                            self.item_table.datetime >= dts[0])
                     # All items before the end date
                     elif dts[1] not in ["", ".."]:
-                        query = query.filter(self.item_table.datetime <= dts[1])
+                        query = query.filter(
+                            self.item_table.datetime <= dts[1])
 
                 # Query fields
                 if search_request.query:
@@ -437,7 +471,8 @@ class CoreCrudClient(PaginationTokenClient, BaseCoreClient):
                         [func.count()]
                     ).order_by(None)
                     count = query.session.execute(count_query).scalar()
-                page = get_page(query, per_page=search_request.limit, page=token)
+                page = get_page(
+                    query, per_page=search_request.limit, page=token)
                 # Create dynamic attributes for each page
                 page.next = (
                     self.insert_token(keyset=page.paging.bookmark_next)
@@ -502,7 +537,8 @@ class CoreCrudClient(PaginationTokenClient, BaseCoreClient):
                 # Need to pass through `.json()` for proper serialization
                 # of datetime
                 response_features = [
-                    json.loads(stac_pydantic.Item(**feat).json(**filter_kwargs))
+                    json.loads(stac_pydantic.Item(
+                        **feat).json(**filter_kwargs))
                     for feat in response_features
                 ]
 
