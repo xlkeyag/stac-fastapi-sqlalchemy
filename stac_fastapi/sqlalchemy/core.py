@@ -64,9 +64,14 @@ class CoreCrudClient(PaginationTokenClient, BaseCoreClient):
 
     def all_collections(self, **kwargs) -> Collections:
         """Read all collections from the database."""
-
         # Get JWT from request headers
-        token = kwargs["request"].headers.get("Authorization").split(" ")[1]
+        token = kwargs["request"].headers.get("Authorization")
+        if not token:
+            raise HTTPException(
+                status_code=401, detail="Unauthorized to perform this action"
+            )
+        token = token.split(" ")[1]
+
         decoded = jwt.decode(token, key="our-secret-key",
                              algorithms=["HS256"], options={"verify_signature": False})
 
